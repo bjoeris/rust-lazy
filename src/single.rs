@@ -1,7 +1,8 @@
 use std::ops::{Deref, DerefMut};
 use std::cell::UnsafeCell;
 use std::ptr;
-use std::thunk::Invoke;
+use super::invoke::Invoke;
+use std::marker;
 
 use self::Inner::{Evaluated, EvaluationInProgress, Unevaluated};
 
@@ -13,7 +14,7 @@ pub struct Thunk<'a, T> {
     inner: UnsafeCell<Inner<'a, T>>,
 }
 
-impl<'a, T> !Sync for Thunk<'a, T> {}
+impl<'a, T> !marker::Sync for Thunk<'a, T> {}
 
 impl<'a, T> Thunk<'a, T> {
     /// Create a lazily evaluated value from a proc that returns that value.
@@ -23,9 +24,9 @@ impl<'a, T> Thunk<'a, T> {
     ///
     /// ```rust
     /// # use lazy::single::Thunk;
-    /// let expensive = Thunk::new(|| { println!("Evaluated!"); 7u });
-    /// assert_eq!(*expensive, 7u); // "Evaluated!" gets printed here.
-    /// assert_eq!(*expensive, 7u); // Nothing printed.
+    /// let expensive = Thunk::new(|| { println!("Evaluated!"); 7u32 });
+    /// assert_eq!(*expensive, 7u32); // "Evaluated!" gets printed here.
+    /// assert_eq!(*expensive, 7u32); // Nothing printed.
     /// ```
     pub fn new<F>(producer: F) -> Thunk<'a, T>
     where F: 'a + FnOnce() -> T {
@@ -71,20 +72,20 @@ impl<'a, T> Thunk<'a, T> {
 }
 
 struct Producer<'a, T> {
-    inner: Box<Invoke<(), T> + 'a>
+    inner: Box<Invoke<T> + 'a>
 }
 
 impl<'a,T> Producer<'a,T> {
     fn new<F: 'a + FnOnce() -> T>(f: F) -> Producer<'a,T> {
         Producer {
-            inner: Box::new(move |()| {
+            inner: Box::new(move || {
                 f()
-            }) as Box<Invoke<(), T>>
+            }) as Box<Invoke<T>>
         }
     }
 
     fn invoke(self) -> T {
-        self.inner.invoke(())
+        self.inner.invoke()
     }
 }
 
@@ -115,3 +116,4 @@ impl<'x, T> DerefMut for Thunk<'x, T> {
         }
     }
 }
+
