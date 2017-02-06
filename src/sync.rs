@@ -95,7 +95,6 @@ impl<'a,T: Send + Sync> Deref for Thunk<'a,T> {
     fn deref(&self) -> &T {
         self.force();
         match *self.inner {
-            // Safe because getting this &'a T requires &'a self.
             Evaluated(ref val) => val,
 
             // We just forced this thunk.
