@@ -1,4 +1,4 @@
-#![feature(plugin, std_misc, old_io)]
+#![feature(plugin)]
 #![plugin(stainless)]
 
 #[macro_use]
@@ -6,7 +6,7 @@ extern crate lazy;
 
 pub use lazy::sync::Thunk;
 pub use std::sync::{Arc, Barrier, Mutex};
-pub use std::{old_io, time};
+pub use std::{time};
 pub use std::thread;
 
 describe! sync {
@@ -43,7 +43,7 @@ describe! sync {
 
     it "should be safe to access while evaluating" {
         let data = Arc::new(sync_lazy!({
-            old_io::timer::sleep(time::Duration::milliseconds(50));
+            thread::sleep(time::Duration::from_millis(50));
             5
         }));
 

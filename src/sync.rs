@@ -1,7 +1,7 @@
 use std::ops::{Deref, DerefMut};
 use oncemutex::OnceMutex;
 use std::mem;
-use std::thunk::Invoke;
+use super::invoke::Invoke;
 
 use self::Inner::{Evaluated, EvaluationInProgress, Unevaluated};
 
@@ -24,16 +24,16 @@ impl<'a, T: Send + Sync> Thunk<'a, T> {
     /// ```rust
     /// # use lazy::sync::Thunk;
     /// # use std::sync::Arc;
-    /// # use std::thread::Thread;
-    /// let expensive = Thunk::new(|| { println!("Evaluated!"); 7u });
+    /// # use std::thread;
+    /// let expensive = Thunk::new(|| { println!("Evaluated!"); 7u32 });
     /// let reff = Arc::new(expensive);
     /// let reff_clone = reff.clone();
     ///
     /// // Evaluated is printed sometime beneath this line.
-    /// Thread::spawn(move || {
-    ///     assert_eq!(**reff_clone, 7u);
+    /// thread::spawn(move || {
+    ///     assert_eq!(**reff_clone, 7u32);
     /// });
-    /// assert_eq!(**reff, 7u);
+    /// assert_eq!(**reff, 7u32);
     /// ```
     pub fn new<F: 'a>(producer: F) -> Thunk<'a, T>
     where F: Send + Sync + FnOnce() -> T {
@@ -81,11 +81,7 @@ impl<'a, T: Send + Sync> DerefMut for Thunk<'a, T> {
     fn deref_mut(&mut self) -> &mut T {
         self.force();
         match *&mut*self.inner {
-            // Safe because getting this &'a mut T requires &'a mut self.
-            //
-            // We can't use copy_mut_lifetime here because self is already
-            // borrowed as &mut by val.
-            Evaluated(ref mut val) => unsafe { mem::transmute(val) },
+            Evaluated(ref mut val) => val,
 
             // We just forced this thunk.
             _ => unsafe { debug_unreachable!() }
@@ -100,7 +96,7 @@ impl<'a,T: Send + Sync> Deref for Thunk<'a,T> {
         self.force();
         match *self.inner {
             // Safe because getting this &'a T requires &'a self.
-            Evaluated(ref val) => unsafe { mem::copy_lifetime(self, val) },
+            Evaluated(ref val) => val,
 
             // We just forced this thunk.
             _ => unsafe { debug_unreachable!() }
@@ -109,20 +105,20 @@ impl<'a,T: Send + Sync> Deref for Thunk<'a,T> {
 }
 
 struct Producer<'a,T> {
-    inner: Box<Invoke<(), T> + Send + Sync + 'a>
+    inner: Box<Invoke<T> + Send + Sync + 'a>
 }
 
 impl<'a,T> Producer<'a, T> {
     fn new<F: 'a + Send + Sync + FnOnce() -> T>(f: F) -> Producer<'a, T> {
         Producer {
-            inner: Box::new(move |()| {
+            inner: Box::new(move || {
                 f()
-            }) as Box<Invoke<(), T> + Send + Sync>
+            }) as Box<Invoke<T> + Send + Sync>
         }
     }
 
     fn invoke(self) -> T {
-        self.inner.invoke(())
+        self.inner.invoke()
     }
 }
 

@@ -15,7 +15,7 @@ mod invoke;
 pub mod single;
 
 /// A Thunk safe for multi-threaded use.
-// pub mod sync;
+pub mod sync;
 
 mod lazy {
     pub use super::*;
@@ -28,10 +28,10 @@ macro_rules! lazy {
     }
 }
 
-// #[macro_export]
-// macro_rules! sync_lazy {
-//     ($e:expr) => {
-//         $crate::sync::Thunk::new(move || { $e })
-//     }
-// }
+#[macro_export]
+macro_rules! sync_lazy {
+    ($e:expr) => {
+        $crate::sync::Thunk::new(move || { $e })
+    }
+}
 
